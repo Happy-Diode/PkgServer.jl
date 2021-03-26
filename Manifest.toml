@@ -14,6 +14,11 @@ version = "1.3.0"
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
+[[Cassette]]
+git-tree-sha1 = "742fbff99a2798f02bd37d25087efb5615b5a207"
+uuid = "7057c7e9-c182-5462-911a-8362d720325c"
+version = "0.3.5"
+
 [[Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -132,6 +137,12 @@ uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 git-tree-sha1 = "874e8867b33a00e784c8a7e4b60afe9e037b74e1"
 uuid = "777ac1f9-54b0-4bf8-805c-2214025038e7"
 version = "1.1.0"
+
+[[SimpleMock]]
+deps = ["Cassette"]
+git-tree-sha1 = "0173cb8416512a56751055232d0b389d5c2d7175"
+uuid = "a896ed2c-15a5-4479-b61d-a0e88e2a1d25"
+version = "1.2.0"
 
 [[Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
