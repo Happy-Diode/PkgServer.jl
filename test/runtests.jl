@@ -29,6 +29,10 @@ function prepare_for_deletion(path::AbstractString)
     end
 end
 
+# unit tests that do not require a running server
+@info("Running unit test suite.")
+include("unit_tests.jl")
+
 # If these are not set, we will attempt to auto-initiate them.
 server_process = nothing
 if isempty(get(ENV, "JULIA_PKG_SERVER", "")) || isempty(get(ENV, "JULIA_PKG_SERVER_STORAGE_ROOT", ""))

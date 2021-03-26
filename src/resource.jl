@@ -10,6 +10,87 @@ const resource_re = Regex("""
 """, "x")
 
 """
+Minimalist GitHub REST API utilities for validating repository URL and tree SHA.
+"""
+module GitHub
+    using HTTP
+    using URIs
+
+    """
+        api_repository_url(repo_url) -> String
+
+    Composes the GitHub API URL based on the GitHub repository URL. For example, for the General 
+    registry, the repo and its API URL are:
+
+    https://github.com/JuliaRegistries/General.git -> https://api.github.com/repos/JuliaRegistries/General
+
+    """
+    function api_repository_url(repo_url::String):String
+        # extract the owner and repository names from the repo URL
+        uri = URI(repo_url)
+        path = URIs.splitpath(uri)
+        if length(path) == 2 && uri.host == "github.com"
+            # exactly two path segments identify a GitHub repository
+            owner = path[1]
+            repo = replace(path[2], ".git" => "")
+            api_path = joinpath("/repos", owner, repo)
+            api_uri = URI(scheme="https", host="api.github.com", path=api_path)
+            return string(api_uri)
+        else 
+            throw(DomainError(repo_url, "Unable to determine GitHub repository from URL"))
+        end
+    end
+
+    """
+        api_tree_url(repo_base_url, sha) -> String
+
+    Composes the GitHub API URL for a tree SHA. This URL can be used to validate that a tree SHA
+    exists in the upstream repository. `repo_base_url` is the API URL for the repository resource,
+    such as composed by `api_repository_url(repo_url)`
+    """
+    function api_tree_url(repo_base_url::String, sha::String)::String
+        repo_base_url * "/git/trees/" * sha
+    end
+    
+    """
+        resource_exists(url[; token=...]) -> Bool
+
+    Returns `true` if a `HEAD` request for the GitHub `url` returns a 200,  `false` otherwise.
+    For non-public resources, specify a GitHub personal access token with the optional `token` 
+    parameter (only GitHub REST API requests can be authorized with a token).
+    """
+    function resource_exists(url::String; token::Union{Nothing,String}=nothing)::Bool
+        headers = []
+        if token !== nothing
+            headers = ["Authorization" => "token " * token]
+        end
+        response = HTTP.request("HEAD", url, headers, status_exception=false)
+        response.status == 200
+    end
+end
+
+mutable struct RegistryMeta
+    # Upstream registry URL (e.g. "https://github.com/JuliaRegistries/General")
+    upstream_url::String
+    # Upstream API URL base for registry repo (e.g. "https://api.github.com/repos/JuliaRegistries/General)
+    upstream_api_url::String
+    # The latest hash we know about for this registry
+    latest_hash::Union{Nothing,String}
+    # Access token for private registry repository - only read permission is required
+    access_token::Union{Nothing,String}
+
+    function RegistryMeta(url::String; token::Union{Nothing,String}=nothing)
+        api_url = GitHub.api_repository_url(url)
+        if !GitHub.resource_exists(api_url; token=token)
+            throw(ArgumentError("Unreachable registry '$(url)'"))
+        end
+
+        # registry URL is valid
+        return new(url, api_url, nothing, token)
+    end
+end
+
+"""
     get_registries(server)
 
 Interrogate a storage server for a list of registries, match the response against the
@@ -122,8 +203,9 @@ end
 Verify that the origin git repository knows about the given registry tree hash.
 """
 function verify_registry_hash(uuid::AbstractString, hash::AbstractString)
-    url = Pkg.Operations.get_archive_url_for_version(config.registries[uuid].upstream_url, hash)
-    return url === nothing || url_exists(url)
+    registry_meta = config.registries[uuid]
+    tree_url = GitHub.api_tree_url(registry_meta.upstream_api_url, hash)
+    return GitHub.resource_exists(tree_url; token=registry_meta.access_token)
 end
 
 function update_registries()
